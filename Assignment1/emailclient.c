@@ -12,14 +12,11 @@ void send_message(char *content)
     printf("Type Message: ");
     int read;
     char token[1048] = {0};
-    while ((read = scanf("%s", token)) != -1)
+    while (fgets(token, sizeof(token), stdin) != NULL)
     {
         strcat(content, token);
-        strcat(content, "\n");
-        if (strcmp(token + strlen(token) - 3, "###") == 0)
-        {
+        if (strcmp(token + strlen(token) - 4, "###\n") == 0)
             break;
-        }
     }
 }
 void user_input_interface(char *command)

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>
+
 #define BUF_SIZE 2048
 #define NUSERS 1000
 #define USERIDLIMIT 100
@@ -14,7 +15,7 @@
 typedef struct Email
 {
     struct User *from, *to;
-    char /* *subject ,*/ *content /*, *dt */;
+    char /* *subject ,*/ *content, *dt;
     struct Email *last, *next;
 } Email;
 
@@ -46,7 +47,7 @@ char *str_append(int cnt, char *str, ...)
     va_end(arg);
     return retstr;
 }
-char *get_filename(char *uid) { return str_append(3, "users/", uid, ".txt"); }
+char *get_filename(char *uid) { return str_append(3, "mail_root/users/", uid, ".txt"); }
 
 ssize_t store_email(struct Email *email, FILE *fp) { return fwrite(email, sizeof(struct Email), 1, fp); }
 
@@ -55,12 +56,12 @@ ssize_t read_email(FILE *fp, struct Email *inp) { return fread(inp, sizeof(struc
 char *email_to_str(struct Email *email)
 {
     char *data;
-    data = calloc(BUF_SIZE, sizeof(char));
+    data = calloc(BUFSIZ, sizeof(char));
     strcpy(data, str_append(3, "From: ", email->from->userid, "\n"));
     strcat(data, str_append(3, "To: ", email->to->userid, "\n"));
-    // strcat(data, str_append(3, "Date: ", email->dt, "\n"));
+    strcat(data, str_append(3, "Date: ", email->dt, "\n"));
     // strcat(data, str_append(3, "Subject: ", email->subject, "\n"));
-    strcat(data, str_append(3, "Contents\n", email->content, "\n###\n"));
+    strcat(data, str_append(3, "Contents:\n", email->content, "###\n"));
     // printf("EMAIL : %s\n", data);
     return data;
 }
@@ -73,49 +74,67 @@ int isUserPresent(char *userid)
     return -1;
 }
 
-void fetch_emails()
+Email *read_email_from_file(FILE *fp)
 {
-    FILE *fp = fopen(get_filename(current_user->userid), "r");
-    Email *email = calloc(1, sizeof(struct Email));
-    char *tstr = calloc(BUF_SIZE, sizeof(char)), *content = calloc(BUF_SIZE, sizeof(char));
-    ssize_t read;
-    size_t len = 0;
-    Email *curr = NULL;
-    int i = 0;
-
-    current_user->current_email = NULL;
-    while (fscanf(fp, "From: %s\n", tstr) == 1)
+    if (fp == NULL)
+        return NULL;
+    else
     {
-        email->from = users[isUserPresent(tstr)];
+        char *tstr = calloc(BUFSIZ, sizeof(char));
+        char *content = calloc(BUFSIZ, sizeof(char));
+        int read;
+        size_t len = 0;
+        Email *em = calloc(1, sizeof(Email));
+        em->dt = calloc(BUFSIZ, sizeof(char));
+        if (fscanf(fp, "From: %s\n", tstr) != 1)
+        {
+            return NULL;
+        }
+        em->from = users[isUserPresent(tstr)];
         fscanf(fp, "To: %s\n", tstr);
-        email->to = users[isUserPresent(tstr)];
-        // fscanf(fp, "Date: %s\n", email->dt);
-        // fscanf(fp, "Subject: %s\n", email->subject);
-        fscanf(fp, "%s", tstr);
+        em->to = users[isUserPresent(tstr)];
+        fgets(tstr, BUFSIZ * sizeof(char), fp);
+        strcpy(em->dt, &tstr[6]);
+        em->dt[strlen(em->dt) - 1] = '\0';
+        fscanf(fp, "%s\n", tstr);
         while ((read = getline(&tstr, &len, fp)) != -1)
         {
-            if (strcmp(tstr, "###") == 0)
+            if (strcmp(tstr, "###\n") == 0)
                 break;
             strcat(content, tstr);
         }
-        email->content = calloc(BUF_SIZE, sizeof(char));
-        strcpy(email->content, content);
+        em->content = calloc(BUFSIZ, sizeof(char));
+        strcpy(em->content, content);
+        return em;
+    }
+}
+
+void fetch_emails()
+{
+    FILE *fp = fopen(get_filename(current_user->userid), "r");
+    char *tstr = calloc(BUF_SIZE, sizeof(char)), *content = calloc(BUF_SIZE, sizeof(char));
+    ssize_t read;
+    size_t len = 0;
+    Email *curr = NULL, *email = NULL;
+    int i = 0;
+
+    current_user->current_email = NULL;
+    while ((email = read_email_from_file(fp)) != NULL)
+    {
         if (curr != NULL)
-        {
             curr->next = email;
-        }
         email->last = curr;
         curr = email;
         if (i == 0)
             current_user->email_head = curr;
         i++;
     }
-    current_user->current_email = current_user->email_head;
     if (curr != NULL)
     {
-        (curr->next) = (current_user->current_email);
-        (current_user->current_email->last) = curr;
+        (curr->next) = (current_user->email_head);
+        (current_user->email_head->last) = curr;
     }
+    current_user->current_email = current_user->email_head;
     fclose(fp);
 }
 
@@ -137,11 +156,10 @@ int addUser(char *userid)
     if (isUserPresent(userid) != -1)
         return -1;
 
-    users[current_users] = calloc(BUF_SIZE, sizeof(struct User));
+    users[current_users] = calloc(1, sizeof(struct User));
     strncpy(users[current_users]->userid, userid, USERIDLIMIT - 1);
     users[current_users]->nmsgs = 0;
-    FILE *fp = fopen(get_filename(userid), "w");
-    fclose(fp);
+    fclose(fopen(get_filename(userid), "w"));
     current_users++;
     return 0;
 }
@@ -159,12 +177,14 @@ char *list_users()
 
 void initialize()
 {
-    FILE *fp = fopen("users.txt", "r");
+    FILE *fp = fopen("mail_root/users.txt", "r");
     struct User inp;
     while (read_user(fp, &inp))
     {
         users[current_users] = calloc(1, sizeof(struct User));
-        memcpy(users[current_users++], &inp, sizeof(struct User));
+        memcpy(users[current_users], &inp, sizeof(struct User));
+        users[current_users]->current_email = NULL;
+        users[current_users++]->email_head = NULL;
         // print_user(users[current_users - 1]);
     }
     fclose(fp);
@@ -175,10 +195,11 @@ void write_spool_back(User *usr)
     if (usr->email_head != NULL)
     {
         Email *curr = usr->email_head->next;
+        fclose(fopen(get_filename(usr->userid), "w"));
         FILE *fp = fopen(get_filename(usr->userid), "w");
         char *str = email_to_str(usr->email_head);
         fwrite(str, 1, strlen(str), fp);
-        while ((curr != usr->email_head) && (curr != NULL))
+        while ((curr != usr->email_head))
         {
             str = email_to_str(curr);
             fwrite(str, 1, strlen(str), fp);
@@ -213,7 +234,7 @@ int get_command(char *buffer, int to_print)
         {
             printf("Connection ended\n");
             printf("===============================================\n");
-            storeback();
+            // storeback();
             current_user = NULL;
             return -1;
         }
@@ -316,18 +337,17 @@ void command_processor(char *str)
             em->to = users[toidx];
             char *buffer = calloc(BUF_SIZE, sizeof(char));
             em->content = calloc(BUF_SIZE, sizeof(char));
-            strcpy(em->content, "");
             while (1)
             {
                 get_command(buffer, -1);
                 if (strcmp(&buffer[strlen(buffer) - 4], "###\n") == 0)
                 {
                     strncat(em->content, buffer, strlen(buffer) - 4);
+                    strcat(em->content, "\n");
                     break;
                 }
                 else
                 {
-                    buffer[strlen(buffer) - 1] = ' ';
                     strcat(em->content, buffer);
                 }
             }
@@ -338,14 +358,25 @@ void command_processor(char *str)
                 em->next = em->to->email_head;
                 em->to->email_head->last->next = em;
                 em->to->email_head->last = em;
+                em->to->email_head = em;
             }
             else
             {
+                em->next = em;
                 em->last = em;
                 em->to->email_head = em;
             }
             em->to->nmsgs++;
+
+            time_t curtime;
+            time(&curtime);
+            char *dstr = ctime(&curtime);
+            str[strlen(dstr) - 1] = '\0';
+            em->dt = calloc(BUF_SIZE, sizeof(char));
+            strcpy(em->dt, dstr);
+
             strcpy(str, "OK\n");
+            write_spool_back(em->to);
         }
     }
     else
@@ -400,7 +431,7 @@ void network_interface(int port)
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
                                  (socklen_t *)&addrlen)) < 0)
         {
-            storeback();
+            // storeback();
             perror("accept");
             exit(EXIT_FAILURE);
         }
