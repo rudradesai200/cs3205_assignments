@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 char *userid;
 
@@ -167,7 +169,13 @@ int main(int argc, char **argv)
     else
     {
         int port;
-        char *hostname = argv[1];
+        char *IPbuffer;
+        struct hostent *host_entry;
+        char *hostname;
+        host_entry = gethostbyname(argv[1]);
+        hostname = inet_ntoa(*((struct in_addr *)
+                                   host_entry->h_addr_list[0]));
+
         userid = malloc(sizeof(char));
         sscanf(argv[2], "%d", &port);
         return network_interface(hostname, port);
