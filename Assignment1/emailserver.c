@@ -436,7 +436,9 @@ void network_interface(int port)
             exit(EXIT_FAILURE);
         }
         printf("===============================================\n");
-        printf("Connected with %d\n", address.sin_addr.s_addr);
+        char str[1024];
+        inet_ntop(AF_INET, &(address.sin_addr), str, INET_ADDRSTRLEN);
+        printf("Connected with %s\n", str);
 
         while (1)
         {
