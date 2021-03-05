@@ -227,10 +227,11 @@ void write_spool_back(User *usr)
 void storeback()
 {
     FILE *fp;
+    fclose(fopen("mail_root/users.txt", "w"));
     for (int i = 0; i < current_users; i++)
     {
         write_spool_back(users[i]);
-        fp = fopen("users.txt", "w+");
+        fp = fopen("mail_root/users.txt", "w+");
         store_user(users[i], fp);
         fclose(fp);
     }
