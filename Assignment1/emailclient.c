@@ -164,7 +164,7 @@ int main(int argc, char **argv)
 {
     if (argc != 3)
     {
-        printf("Usage:\n./emailclient <hostname:str> <port:int>\n");
+        printf("Usage:\n./emailclient <host | ip :str> <port:int>\n");
     }
     else
     {
