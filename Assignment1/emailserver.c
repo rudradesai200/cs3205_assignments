@@ -249,7 +249,7 @@ int get_command(char *buffer, int to_print)
         {
             printf("Connection ended\n");
             printf("===============================================\n");
-            // storeback();
+            storeback();
             current_user = NULL;
             return -1;
         }
