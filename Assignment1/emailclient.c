@@ -26,7 +26,7 @@ void send_message(char *content)
 }
 void user_input_interface(char *command)
 {
-    printf("\033[0;33mSub-Prompt-%s>\033[0m ", userid);
+    printf("\033[0;33mSub-Prompt-\033[0;36m%s>\033[0m ", userid);
     scanf("%s", command);
     if (strcmp(command, "Read") == 0)
     {

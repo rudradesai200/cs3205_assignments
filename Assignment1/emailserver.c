@@ -375,7 +375,7 @@ void command_processor(char *str)
             strcpy(str, "OK\nNo More Email\n");
         else
         {
-            strcpy(str, email_to_str((current_user->current_email)));
+            strcpy(str, str_append(2, "OK\n", email_to_str((current_user->current_email))));
             current_user->current_email = current_user->current_email->next;
         }
     }
