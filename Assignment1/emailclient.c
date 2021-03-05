@@ -14,7 +14,7 @@ char *userid;
 // IT needs that the server replies with no message.
 void send_message(char *content)
 {
-    printf("Type Message: ");
+    printf("\033[0;36mType Message:\033[0m ");
     int read;
     char token[1048] = {0};
     while (fgets(token, sizeof(token), stdin) != NULL)
@@ -137,8 +137,8 @@ int network_interface(char *hostname, int port)
 
         // Get the response
         memset(buffer, 0, strlen(buffer));
-        if ((strncmp(command, "SEND", 4) != 0))
-            valread = read(sock, buffer, 1024);
+        // if ((strncmp(command, "SEND", 4) != 0))
+        valread = read(sock, buffer, 1024);
 
         // printf("%s\n%s", command, buffer);
         // Take actions according to the response
@@ -153,20 +153,18 @@ int network_interface(char *hostname, int port)
             userflag = 0;
             userid = NULL;
         }
-        if ((strncmp(command, "SEND", 4) == 0))
+        if ((strncmp(command, "SEND", 4) == 0) && (strncmp(buffer, "OK", 2) == 0))
         {
             userflag += 2;
         }
+
+        if (strncmp(buffer, "Not OK : ", 9) == 0)
+        {
+            printf("\033[0;31mNot OK : \033[0m%s", &buffer[9]);
+        }
         else
         {
-            if (strncmp(buffer, "Not OK : ", 9) == 0)
-            {
-                printf("\033[0;31mNot OK : \033[0m%s", &buffer[9]);
-            }
-            else
-            {
-                printf("\033[0;32mOK\033[0m%s", &buffer[2]);
-            }
+            printf("\033[0;32mOK\033[0m%s", &buffer[2]);
         }
     }
     return 0;

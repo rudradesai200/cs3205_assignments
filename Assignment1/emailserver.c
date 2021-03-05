@@ -314,6 +314,10 @@ Email *SEND(int toidx)
         em->last = em;
         em->to->email_head = em;
     }
+    if (em->to->current_email == NULL)
+    {
+        em->to->current_email = em->to->email_head;
+    }
     em->to->nmsgs++;
 
     time_t curtime;
@@ -400,6 +404,9 @@ void command_processor(char *str)
             strcpy(str, str_append(3, "Not OK : No userid = ", to, "\n"));
         else
         {
+            strcpy(str, "OK\n");
+            // printf("Sent message : %s", str);
+            send(new_socket, str, strlen(str), 0);
             Email *em = SEND(toidx);
             strcpy(str, "OK\n");
             write_spool_back(em->to);
@@ -472,6 +479,7 @@ void network_interface(int port)
             if (ret == -1)
                 break;
             command_processor(buffer);
+            // printf("Sent message : %s", buffer);
             send(new_socket, buffer, strlen(buffer), 0);
         }
     }
