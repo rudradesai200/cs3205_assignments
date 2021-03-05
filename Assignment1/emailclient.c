@@ -85,14 +85,14 @@ void general_input_interface(char *command)
 int network_interface(char *hostname, int port)
 {
     char *command;
-    printf("Trying server %s on port %d\n", hostname, port);
+    printf("== Trying server \033[0;32m%s\033[0m on port \033[0;32m%d\033[0m\n", hostname, port);
     int sock = 0, valread, userflag = 0;
     struct sockaddr_in serv_addr;
 
     char buffer[1024] = {0};
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        printf("\n Socket creation error \n");
+        printf("\n \033[0;31mSocket creation error\033[0m \n");
         return -1;
     }
 
@@ -102,16 +102,17 @@ int network_interface(char *hostname, int port)
     // Convert IPv4 and IPv6 addresses from text to binary form
     if (inet_pton(AF_INET, hostname, &serv_addr.sin_addr) <= 0)
     {
-        printf("\nInvalid address/ Address not supported \n");
+        printf("\n\033[0;31mInvalid address/ Address not supported\033[0m \n");
         return -1;
     }
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
-        printf("\nConnection Failed \n");
+        printf("\n\033[0;31mConnection Failed\033[0m \n");
         return -1;
     }
 
+    printf("== \033[0;32mConnected\033[0m\n");
     command = malloc(1024 * sizeof(char));
 
     while (1)
