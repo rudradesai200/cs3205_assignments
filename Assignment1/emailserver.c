@@ -234,7 +234,7 @@ void storeback()
         store_user(users[i], fp);
         fclose(fp);
     }
-    fclose(fp);
+    // fclose(fp);
 }
 
 /** Receives command and writes it in the buffer. */
