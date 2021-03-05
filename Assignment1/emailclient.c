@@ -5,6 +5,9 @@
 #include <netdb.h>
 #include <string.h>
 #include <arpa/inet.h>
+#define GREEN "\033[0;32m"
+#define RED "\033[0;101m"
+#define NC "\033[0m"
 
 char *userid;
 
@@ -23,7 +26,7 @@ void send_message(char *content)
 }
 void user_input_interface(char *command)
 {
-    printf("Sub-Prompt-%s> ", userid);
+    printf("\033[0;33mSub-Prompt-%s>\033[0m ", userid);
     scanf("%s", command);
     if (strcmp(command, "Read") == 0)
     {
@@ -52,7 +55,7 @@ void user_input_interface(char *command)
 }
 void general_input_interface(char *command)
 {
-    printf("Main-Prompt> ");
+    printf("\033[0;33mMain-Prompt>\033[0m ");
     scanf("%s", command);
     if (strcmp(command, "Quit") == 0)
         strcpy(command, "Quit");
@@ -74,7 +77,7 @@ void general_input_interface(char *command)
     }
     else
     {
-        printf("Incorrect command received.\nAvailable options - Listusers, Adduser <userid>, SetUser <userid>, Quit\n");
+        printf("\033[0;31mIncorrect command received.\033[0m\nAvailable options - Listusers, Adduser <userid>, SetUser <userid>, Quit\n");
         return general_input_interface(command);
     }
 }
@@ -155,7 +158,16 @@ int network_interface(char *hostname, int port)
             userflag += 2;
         }
         else
-            printf("%s", buffer);
+        {
+            if (strncmp(buffer, "Not OK : ", 9) == 0)
+            {
+                printf("\033[0;31mNot OK : \033[0m%s", &buffer[9]);
+            }
+            else
+            {
+                printf("\033[0;32mOK\033[0m%s", &buffer[2]);
+            }
+        }
     }
     return 0;
 }

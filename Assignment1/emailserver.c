@@ -244,7 +244,7 @@ int get_command(char *buffer, int to_print)
     int valread = read(new_socket, buffer, BUF_SIZE);
     if (to_print)
     {
-        printf("Received message : %s\n", buffer);
+        printf("\033[0;33mReceived message :\033[0;0m %s\n", buffer);
         if (strcmp(buffer, "Quit") == 0)
         {
             printf("Connection ended\n");
@@ -464,7 +464,7 @@ void network_interface(int port)
         printf("===============================================\n");
         char str[1024];
         inet_ntop(AF_INET, &(address.sin_addr), str, INET_ADDRSTRLEN);
-        printf("Connected with %s\n", str);
+        printf("\033[0;32mConnected with %s\033[0;0m\n", str);
 
         while (1)
         {
