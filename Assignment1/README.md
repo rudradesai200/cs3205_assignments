@@ -1,6 +1,7 @@
 ## Instructions to compile
 
 - `make` will set up all the folders and create executables
+- `make clean` will remove all the created executables and files.
 
 ## How to Run?
 
@@ -12,5 +13,6 @@
 
 ## Other instructions
 
-- Emailserver should always be running before emailclient runs.
+- Emailserver should always be up and running before emailclient runs.
 - Mail info will stay persistent across user sessions as well as server sessions ,provided that emailserver is not closed while a emailclient is running.
+- All the attached screenshots are run on remote host, which will be reproduced while viva presentation.
