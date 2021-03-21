@@ -12,7 +12,7 @@
 
 /** Hyperparams */
 #define TIMEOUT 5 // Defines the interval timedelta before timeout
-#define RWS 1000  // Receiver Window Size
+#define RWS 1024  // Receiver Window Size
 #define MSS 1     // Maximum Segment Size
 
 /** Global Declarations */
