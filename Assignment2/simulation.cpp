@@ -20,6 +20,7 @@ int timer, log_level;
 std::random_device rd{}; // use to seed the rng
 std::mt19937 rng{rd()};  // rng
 int update_cnt;
+std::vector<double> cws_vec;
 
 using namespace std;
 
@@ -34,7 +35,6 @@ private:
     int curr_window_start;
     int last_ack;
     int curr_ack;
-    ofstream fp;
     queue<pii> segments_sent_time; // Queue containing timers for currently sent segments.
     double cws;                    // Congestion window size
     int threshold;
@@ -57,7 +57,7 @@ public:
      * @param f cws multiplier when a timeout occurs,
      * @param T total segments to be sent,
      */
-    Sender(string fname, int i = 1, double m = 1.0, double n = 1.0, double f = 0.1, int T = 100) : Ki(i), Km(m), Kn(n), Kf(f), KT(T)
+    Sender(int i = 1, double m = 1.0, double n = 1.0, double f = 0.1, int T = 100) : Ki(i), Km(m), Kn(n), Kf(f), KT(T)
     {
         curr_window_start = 1;
         next_segment_to_send = 1;
@@ -65,8 +65,7 @@ public:
         cws = Ki * MSS;
         threshold = RWS + 1;
         curr_ack = 0;
-        fp.open(fname);
-        fp << to_string(cws) << endl;
+        cws_vec.push_back(cws);
     }
 
     /**
@@ -165,7 +164,7 @@ public:
      */
     bool is_ready_to_send()
     {
-        if ((next_segment_to_send <= KT) && (next_segment_to_send <= curr_window_start + int(cws)) && (next_segment_to_send >= curr_window_start))
+        if ((next_segment_to_send <= KT) && (next_segment_to_send <= curr_window_start + ceil(cws)) && (next_segment_to_send >= curr_window_start))
             return true;
         return false;
     }
@@ -187,17 +186,19 @@ public:
             else
                 cws = min(cws + Km * MSS, double(RWS));
         }
-        if (int(cws) >= threshold)
+        if (ceil(cws) >= threshold)
             state = congestion_avoidance;
         else
             state = slow_start;
 
-        fp << to_string(cws) << endl;
+        cws_vec.push_back(cws);
     }
 
-    void clean()
+    bool is_complete()
     {
-        fp.close();
+        if (last_ack == KT)
+            return true;
+        return false;
     }
 };
 
@@ -335,9 +336,9 @@ public:
     * @param T total segments to be sent,
     * @param Ps Probability of succesfull segment tranfer from this switch
     */
-    Switch(string fname, int i = 1, double m = 1.0, double n = 1.0, double f = 0.1, int T = 100, double Ps = 0.95) : pr(Ps)
+    Switch(int i = 1, double m = 1.0, double n = 1.0, double f = 0.1, int T = 100, double Ps = 0.95) : pr(Ps)
     {
-        s = new Sender(fname, i, m, n, f, T);
+        s = new Sender(i, m, n, f, T);
         r = new Receiver(T);
         if (log_level > 1)
         {
@@ -422,11 +423,9 @@ public:
             print();
 
             /** Check receiver if all the segments are received */
-            if (r->is_complete())
+            if (r->is_complete() && s->is_complete())
                 break;
         }
-
-        s->clean();
     }
 };
 
@@ -490,7 +489,7 @@ void display_help()
     ArgParse::print_options("-m", "Congestion Window multiplier during exponential growth phase. Default : 1.0 (float)");
     ArgParse::print_options("-n", "Congestion Window multiplier during linear growth phase. Default : 1.0 (float)");
     ArgParse::print_options("-f", "Congestion Window multiplier when a timeout occurs. Default : 0.1 (float)");
-    ArgParse::print_options("-s", "Probability of receiving the ACK segment for a given segment. Default : 0.95 (float)");
+    ArgParse::print_options("-s", "Probability of not receiving the ACK signal for a given segment. Default : 0.05 (float)");
     ArgParse::print_options("-T", "Number of segments to be sent before the emulation stops. Default : 100 (int)");
     ArgParse::print_options("-l", "Logging level for simulation. : 0 (int)");
     ArgParse::print_options("-o", "Output filename to store cws updates for plotting.");
@@ -500,7 +499,7 @@ int main(int argc, char **argv)
 {
     // Initialize variables
     int i = 1, t = 100;
-    float m = 1.0, n = 1.0, f = 0.1, s = 0.95;
+    float m = 1.0, n = 1.0, f = 0.1, s = 0.05;
     string fname;
     ::timer = 0;
     ::update_cnt = 0;
@@ -514,8 +513,8 @@ int main(int argc, char **argv)
     }
     if (ArgParse::cmdOptionExists(argv, argv + argc, "-i"))
         i = stoi(ArgParse::getCmdOption(argv, argv + argc, "-i"));
-    if (ArgParse::cmdOptionExists(argv, argv + argc, "-t"))
-        t = stoi(ArgParse::getCmdOption(argv, argv + argc, "-t"));
+    if (ArgParse::cmdOptionExists(argv, argv + argc, "-T"))
+        t = stoi(ArgParse::getCmdOption(argv, argv + argc, "-T"));
     if (ArgParse::cmdOptionExists(argv, argv + argc, "-l"))
         ::log_level = stoi(ArgParse::getCmdOption(argv, argv + argc, "-l"));
     if (ArgParse::cmdOptionExists(argv, argv + argc, "-m"))
@@ -534,7 +533,15 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    cws_vec.reserve(2 * t);
+
     // Start simulation.
-    Switch swtch(fname, i, m, n, f, t, s);
+    Switch swtch(i, m, n, f, t, 1 - s);
     swtch.simulate();
+
+    ofstream fp;
+    fp.open(fname);
+    for (int i = 0; i < t; ++i)
+        fp << to_string(cws_vec[i]) << endl;
+    fp.close();
 }
