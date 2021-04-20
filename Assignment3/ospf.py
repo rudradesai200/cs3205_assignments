@@ -6,6 +6,7 @@ from sys import maxsize
 import threading
 from datetime import datetime
 import os
+from graphviz import Graph
 
 local_IP = "127.0.0.1"
 port_Prefix = 10000
@@ -224,8 +225,29 @@ class Router:
 
         self.dist = dist
 
+    def plotGraph(self):
+        def get_name(a, b): return f"start_{b}" if (a == b) else f"router_{a}"
+
+        g = Graph(self.outfile.replace(".txt", ""), filename=self.outfile.replace(".txt", ".gv"),
+                  engine='sfdp', strict=True)
+        g.attr('node', style='filled', color="lightblue")
+
+        with g.subgraph(name='shortest_path') as c:
+            for i in range(self.routers):
+                if(self.parent[i] != -1):
+                    c.edge(get_name(self.parent[i], self.id), get_name(
+                        i, self.id), label=f"{int(self.graph[self.parent[i]][i])}", color="green")
+
+        for i in range(self.routers):
+            for j in range(i+1, self.routers):
+                if self.graph[i][j] != 0:
+                    g.edge(get_name(i, self.id), get_name(
+                        j, self.id), label=f"{int(self.graph[i][j])}")
+
+        g.render(filename=self.outfile.replace(".txt", ""), format="png")
+
     def write_outfile(self):
-        outfile = open(self.outfile, "w+")
+        outfile = open(self.outfile, "a")
         outfile.write(f"{self.id},{datetime.now().strftime('%H:%M:%S')}\n")
         for r in range(self.routers):
             if(r != self.id):
@@ -237,6 +259,7 @@ class Router:
         self.debug(1, "Shortest paths updated.")
         self.write_outfile()
         self.debug(3, self.graph)
+        self.plotGraph()
 
     def start_router(self):
         self.debug(2, "Router started")

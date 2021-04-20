@@ -19,7 +19,7 @@
 
 ##### run
 
-- First, we generate random graphs using `graph_generator.cpp`
+- First, we generate random graphs as input using `graph_generator.cpp`
 
   - `g++ graph_generator.cpp -o graphs`
   - `./graphs`
@@ -32,3 +32,5 @@
 - To view the logs properly (with colors)
 
   - `cat files/logs/log1.txt`
+
+- To view the graphs, you can use graphviz. All the graphs are stored in graphviz dot format
