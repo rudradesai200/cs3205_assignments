@@ -1,0 +1,10 @@
+strict graph "files/outputs/output3/output2" {
+	node [color=lightblue style=filled]
+	subgraph shortest_path {
+		start_1 -- router_0 [label=4 color=green]
+		start_1 -- router_2 [label=5 color=green]
+	}
+	router_0 -- start_1 [label=4]
+	router_0 -- router_2 [label=30]
+	start_1 -- router_2 [label=5]
+}
