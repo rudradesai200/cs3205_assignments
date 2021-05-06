@@ -190,7 +190,8 @@ class Sender:
 
     def send_packet(self, seq_num, attempts):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        receiver_addr = (self.args.recv_ip, self.args.recv_port)
+        reciever_ip = socket.gethostbyname(self.args.recv_ip)
+        receiver_addr = (reciever_ip, self.args.recv_port)
 
         connected = False
         while not connected:
@@ -307,7 +308,7 @@ def parse_args():
     parser.add_argument('-d', '--debug', type=bool,
                         default=False, help="Turn ON Debug Mode")
     parser.add_argument('-rip', '--recv_ip', type=str,
-                        default="127.0.0.1", help="Receiver's Name or IP address")
+                        default="localhost", help="Receiver's hostname or IP address")
     parser.add_argument('-rp', '--recv_port', type=int,
                         default=10000, help="Receiver's Port Num")
     parser.add_argument('-n', '--seq_field_len', type=int,

@@ -46,7 +46,8 @@ class Receiver:
             if(accept):
                 sock = socket.socket(
                     family=socket.AF_INET, type=socket.SOCK_STREAM)
-                sender_address = (self.args.sender_ip, self.args.sender_port)
+                sender_ip = socket.gethostbyname(self.args.sender_ip)
+                sender_address = (sender_ip, self.args.sender_port)
                 try:
                     sock.connect(sender_address)
                 except:
@@ -141,8 +142,8 @@ def parse_args():
                         default=False, help="Turn ON Debug Mode")
     parser.add_argument('-rp', '--recv_port', type=int,
                         default=10000, help="Receiver's Port Number")
-    parser.add_argument('-sip', '--sender_ip', default="127.0.0.1", type=str,
-                        help="IP address of sender")
+    parser.add_argument('-sip', '--sender_ip', default="localhost", type=str,
+                        help="IP address or hostname of the sender")
     parser.add_argument('-sp', '--sender_port', default=10001, type=int,
                         help="Sender's port num")
     parser.add_argument('-n', '--max_packs', type=int,

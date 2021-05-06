@@ -26,7 +26,7 @@ def parse_summary(e):
 parser = argparse.ArgumentParser(
     description="Program to run multiple routers for Assignment 3 simulation")
 parser.add_argument('-rip', '--recv_ip', type=str,
-                    default="127.0.0.1", help="Receiver's Name or IP address")
+                    default="127.0.0.1", help="Receiver's hostname or IP address")
 parser.add_argument('-rp', '--recv_port', type=int,
                     default=10000, help="Receiver's Port Number")
 parser.add_argument('-N', '--max_packs', type=int,
@@ -39,7 +39,7 @@ parser.add_argument('-B', '--buffer_size', type=int,
 parser.add_argument('-sp', '--send_port', type=int, default=10001,
                     help="Sender's Port for receiving.")
 parser.add_argument('-sip', '--sender_ip', default="127.0.0.1", type=str,
-                    help="IP address of sender")
+                    help="IP address or hostname of the sender")
 args = parser.parse_args()
 
 
