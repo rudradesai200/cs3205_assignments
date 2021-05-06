@@ -81,7 +81,7 @@ class Receiver:
         self.debug(2, f"TCP server started on {self.args.recv_port}")
 
         s.listen(16)
-        s.settimeout(5)
+
         # Wait for receiving packets
         while True:
             try:
@@ -110,9 +110,8 @@ class Receiver:
 
     def start_receiver(self):
         self.debug(2, "Receiver started")
-        t1 = threading.Thread(target=self.receive_msg)
-        t1.start()
-        self.debug(2, "Started receiving packets")
+        while(True):
+            self.receive_msg()
 
 
 def parse_args():

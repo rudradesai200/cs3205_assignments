@@ -96,13 +96,15 @@ class Receiver:
         self.debug(2, f"TCP server started on {self.args.recv_port}")
 
         s.listen(self.args.buffer_size)
-        s.settimeout(5)
+        # s.settimeout(5)
+
         # Wait for receiving packets
         while True:
             try:
                 connection, client_address = s.accept()
             except socket.timeout:
-                self.debug(0, "Socket timed out. No messages received.")
+                self.debug(
+                    0, "Socket timed out. No messages received in receiver.")
                 self.exit_signal = True
                 exit(-1)
 
@@ -126,9 +128,8 @@ class Receiver:
 
     def start_receiver(self):
         self.debug(2, "Receiver started")
-        t1 = threading.Thread(target=self.receive_msg)
-        t1.start()
-        self.debug(2, "Started receiving packets")
+        while(True):
+            self.receive_msg()
 
 
 def parse_args():

@@ -1,6 +1,7 @@
 import argparse
 import socket
 import threading
+import sys
 from datetime import datetime, timedelta
 
 
@@ -46,10 +47,11 @@ class Sender:
         self.order = []
         self.attempts = {}
 
-        self.lock_curr_buff_size = threading.Lock()
-        self.lock_attempts = threading.Lock()
-        self.lock_timers = threading.Lock()
+        # self.lock_curr_buff_size = threading.Lock()
+        # self.lock_attempts = threading.Lock()
+        # self.lock_timers = threading.Lock()
         self.lock_send_packet = threading.Lock()
+        # self.lock_min_timer = threading.Lock()
 
     def debug(self, status, msg):
         if((self.args.debug) and (status <= self.args.log_level)):
@@ -71,9 +73,8 @@ class Sender:
         if(self.exit_signal):
             exit(-(self.exit_signal-1))
 
-        with self.lock_curr_buff_size:
-            self.curr_buff_size = max(
-                self.args.buffer_size, self.curr_buff_size + self.args.pack_gen_rate)
+        self.curr_buff_size = max(
+            self.args.buffer_size, self.curr_buff_size + self.args.pack_gen_rate)
 
     def receive_msg(self):
         # Start the udp server
@@ -90,28 +91,33 @@ class Sender:
 
         s.listen(16)
         while True:
-            connection, client_address = s.accept()
+            try:
+                connection, client_address = s.accept()
+            except socket.timeout:
+                self.debug(
+                    0, "Socket timed out. No messages received in sender.")
+                self.exit_signal = True
+                exit(-1)
 
+            self.lock_send_packet.acquire()
             data = str(connection.recv(1024), encoding="utf-8")
             self.debug(2, f"Rcvd msg from {client_address} : {data}")
 
             if data.startswith('NAK'):
                 split_str = data[3:].split(',')
                 seq_num = int(split_str[0])
-                self.lock_send_packet.acquire()
+                seq_num1 = int(split_str[1][3:])
+                attempts = int(split_str[2])
                 self.recv_nak(seq_num)
-                self.lock_send_packet.release()
-                data = split_str[1] + "," + split_str[2]
-
-            if(data.startswith("ACK")):
+                self.recv_ack(seq_num1, attempts)
+            elif(data.startswith("ACK")):
                 split_str = data[3:].split(',')
                 seq_num = int(split_str[0])
                 attempts = int(split_str[1])
-                self.lock_send_packet.acquire()
                 self.recv_ack(seq_num, attempts)
-                self.lock_send_packet.release()
             else:
                 self.debug(0, "Incorrect msg rcvd")
+            self.lock_send_packet.release()
 
             if(self.max_retransmit >= 10):
                 self.debug(
@@ -122,11 +128,9 @@ class Sender:
     def recv_nak(self, seq_num):
         self.debug(2, f"Rcvd {red('NAK')} for seq num {seq_num}")
 
-        self.min_timer = datetime.now()
-        self.lock_attempts.acquire()
-        attempts = (self.attempts[seq_num])
         self.attempts[seq_num] += 1
-        self.lock_attempts.release()
+        attempts = (self.attempts[seq_num])
+
         self.send_packet(seq_num, attempts)
 
     def recv_ack(self, seq_num, attempts):
@@ -135,12 +139,11 @@ class Sender:
             self.debug(
                 0, f"Rcvd ACK for {seq_num} but no outstanding timer to clear.")
             self.exit_signal = 2
+            self.lock_send_packet.release()
             exit(-1)
 
-        self.lock_timers.acquire()
         rtt = (datetime.now() - self.timers[seq_num]).total_seconds()
         self.timers.pop(seq_num)
-        self.lock_timers.release()
 
         self.rtt_total += rtt
         self.acked[seq_num] = True
@@ -157,29 +160,33 @@ class Sender:
         self.packets_received += 1
         self.total_packs_sent += attempts
 
+        self.min_timer = datetime.now() + timedelta(seconds=1000)
         while((len(self.order) > 0) and (self.order[0] in self.acked.keys())):
             self.min_seq_num = self.order[0] + 1
+            self.debug(
+                3, f"Min seq updated to {self.min_seq_num} in recv_ack_1")
             self.acked.pop(self.order[0])
             self.order.pop(0)
             self.wndw_start += 1
 
         if(len(self.order) == 0):
             self.min_seq_num = -1
-            self.min_timer = datetime.now() + timedelta(seconds=1000)
+            self.debug(
+                3, f"Min seq updated to {self.min_seq_num} in recv_ack_2")
         else:
-            self.lock_timers.acquire()
+
             self.min_timer = self.timers[self.min_seq_num]
-            self.lock_timers.release()
 
         if(self.packets_received == self.args.max_packs):
             self.debug(2, "Sent all packets and rcvd all ACKS. Exiting ...")
             self.print_summary()
             self.exit_signal = 1
+            self.lock_send_packet.release()
             exit(0)
 
         if(self.packets_received >= 10):
             self.timeout = timedelta(
-                seconds=2*(self.rtt_total / self.packets_received))
+                seconds=min(100*(self.rtt_total / self.packets_received), 0.3))
 
     def send_packet(self, seq_num, attempts):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -201,40 +208,38 @@ class Sender:
         self.debug(2, f"Pack with seq_num {seq_num} sent")
 
     def process_timeout(self, seq_num):
+
         if(self.min_seq_num == -1):
             self.debug(0, "Min seq num set to -1 during timeout")
             self.exit_signal = 2
+            self.lock_send_packet.release()
             exit(-1)
 
         self.min_timer = datetime.now()
         self.min_seq_num = seq_num
 
-        self.lock_attempts.acquire()
-        attempts = (self.attempts[seq_num])
+        self.debug(
+            3, f"Min seq updated to {self.min_seq_num} in process_timeout")
+
         self.attempts[seq_num] += 1
-        self.lock_attempts.release()
+        attempts = (self.attempts[seq_num])
 
         self.send_packet(seq_num, attempts)
 
     def send_next_packet(self):
         timer = datetime.now()
 
-        self.lock_timers.acquire()
         self.timers[self.curr_seq_num] = timer
-        self.lock_timers.release()
 
         self.order.append(self.curr_seq_num)
 
-        self.lock_attempts.acquire()
-        try:
-            self.attempts[self.curr_seq_num] += 1
-        except:
-            self.attempts[self.curr_seq_num] = 1
-        self.lock_attempts.release()
+        self.attempts[self.curr_seq_num] = 1
 
         self.min_timer = min(self.min_timer, timer)
         if(self.min_timer == timer):
             self.min_seq_num = self.curr_seq_num
+            self.debug(
+                3, f"Min seq updated to {self.min_seq_num} in send_next_packet")
 
         self.send_packet(self.curr_seq_num, 1)
 
@@ -246,29 +251,37 @@ class Sender:
             if(self.exit_signal):
                 exit(-(self.exit_signal - 1))
 
+            self.lock_send_packet.acquire()
             if((datetime.now() - self.min_timer) > self.timeout):
-                self.lock_send_packet.acquire()
+
                 self.debug(
                     2, f"{red('Timeout')} for pack with seq num {self.min_seq_num}")
                 self.process_timeout(self.min_seq_num)
-                self.lock_send_packet.release()
 
             elif((self.curr_buff_size > 0) and (self.curr_seq_num <= self.args.max_packs) and (self.curr_seq_num < (self.wndw_start + self.args.window_size))):
-                self.lock_send_packet.acquire()
+
                 self.debug(
                     2, f"Sending next pack with seq_num {self.curr_seq_num}")
                 self.send_next_packet()
-                self.lock_send_packet.release()
 
             else:
                 pass
+            self.lock_send_packet.release()
 
     def print_summary(self):
-        print(f"Pack Generate Rate : {self.args.pack_gen_rate}")
-        print(f"Pack Length : {self.args.max_pack_len}")
-        print(
-            f"Retransmission Ratio : {(self.total_packs_sent/self.args.max_packs)}")
-        print(f"Average RTT : {self.rtt_total/ self.packets_received}")
+        if(self.args.out != sys.stdout):
+            self.args.out = open(self.args.out, "w+")
+
+        self.args.out.write(
+            f"Packet Generate Rate : {self.args.pack_gen_rate}\n")
+        self.args.out.write(f"Packet Length : {self.args.max_pack_len}\n")
+        self.args.out.write(
+            f"Retransmission Ratio : {(self.total_packs_sent/self.args.max_packs)}\n")
+        self.args.out.write(
+            f"Average RTT : {self.rtt_total/ self.packets_received}\n")
+
+        if(self.args.out != sys.stdout):
+            self.args.out.close()
 
     def start_sender(self):
         self.debug(2, "Sender started")
@@ -312,7 +325,12 @@ def parse_args():
                         default=64, help="Max buffer size")
     parser.add_argument('-sp', '--send_port', type=int, default=10001,
                         help="Sender's Port for receiving.")
+    parser.add_argument('-o', '--out', type=str,
+                        help="Outfile for printing sumamry. Defaults to sys.stdout")
+
     args = parser.parse_args()
+    if not args.out:
+        args.out = sys.stdout
     return args
 
 
